@@ -1,0 +1,149 @@
+# Jamie 2.0 - Git Ignore File
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform CLI configuration files
+.terraform.lock.hcl
+
+# AWS
+.aws/
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.#*
+
+# Output files
+*.txt
+*.pdf
+*.docx
+*.pptx
+!requirements.txt
+!*-template.pptx
+
+# Sensitive data
+secrets/
+*.env
+.env.local
+.env.*.local
+credentials.json
+config.json
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Lambda deployment packages
+lambda/deployment/
+*.zip
+
+# Test outputs
+test-outputs/
+/tmp/
+
+# Generated documentation
+site/
+
+# Backup files
+*.bak
+*.backup
+
+# IDE-specific
+*.iml
+.project
+.classpath
+.settings/
+
+# npm (if using any JS tooling)
+node_modules/
+package-lock.json
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Pytest
+.pytest_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Local configuration overrides
+local.tf
+local.tfvars

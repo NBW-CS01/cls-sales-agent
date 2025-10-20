@@ -1,0 +1,17 @@
+Customer: NickNack
+Project: DeDupliction and IDP
+
+Company Background:
+NickNack is a leading innovator in the world of bespoke tiles, crafting beautiful and durable surfaces for both commercial and residential spaces. From hand-finished mosaics to large-format architectural tiles, NickNack supplies premium designs to architects, builders, and interior designers across the UK and beyond. Behind the artistry, however, lies a data challenge of monumental scale. Over years of rapid growth, NickNack has amassed around one petabyte of design, production, and logistics data stored in Amazon S3. The dataset has evolved into a 'data swamp' — unstructured, unsorted, and riddled with duplication. It includes sensitive customer design data, supplier information, and digital assets from tile scans and CAD files.
+
+Requirements:
+- 1 petabyte of files in s3
+- dumb unsearchable dataset
+- we need to identify and tag sensitive data
+- we need to make the dataset searchable
+- we need to enrich the dataset with metadata
+- we need to ensure costs are low
+- we need to do this in a secure manner
+- we need to do this in a timely manner
+- we need to dedupe the dataset
+- This is customer data so very sensitive
