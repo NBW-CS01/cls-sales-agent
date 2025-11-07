@@ -254,6 +254,7 @@ resource "aws_lambda_function" "jamie_document_retriever" {
 }
 
 # Lambda function for NDA generation
+# NOTE: Build deployment package with: cd lambda && ./build-nda-package.sh
 resource "aws_lambda_function" "jamie_nda_generator" {
   filename         = "nda_generator.zip"
   function_name    = "jamie2-nda-generator"
@@ -262,6 +263,7 @@ resource "aws_lambda_function" "jamie_nda_generator" {
   runtime         = "python3.12"
   timeout         = 120
   memory_size     = 1024
+  source_code_hash = filebase64sha256("nda_generator.zip")
 
   environment {
     variables = {
@@ -270,8 +272,6 @@ resource "aws_lambda_function" "jamie_nda_generator" {
       COMPANIES_HOUSE_API_KEY  = var.companies_house_api_key
     }
   }
-
-  depends_on = [data.archive_file.nda_lambda_zip]
 }
 
 # Create Lambda deployment package for document retriever
@@ -281,13 +281,8 @@ data "archive_file" "lambda_zip" {
   source_file = "../lambda/jamie_retriever.py"
 }
 
-# Create Lambda deployment package for NDA generator
-data "archive_file" "nda_lambda_zip" {
-  type        = "zip"
-  output_path = "nda_generator.zip"
-  source_dir  = "../lambda"
-  excludes    = ["jamie_retriever.py"]
-}
+# NOTE: NDA generator package is built manually using lambda/build-nda-package.sh
+# This is necessary because it requires Python dependencies (requests, python-docx, lxml)
 
 # IAM role for Lambda
 resource "aws_iam_role" "lambda_role" {

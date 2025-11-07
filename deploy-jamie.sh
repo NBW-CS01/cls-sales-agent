@@ -175,13 +175,17 @@ print_info "Uploading NDA template..."
 aws s3 cp \
   "templates/Non-Disclosure Agreement Template v01 JC OFFLINE.docx" \
   "s3://${BUCKET}/templates/" \
-  --profile $AWS_PROFILE
+  --profile $AWS_PROFILE \
+  --sse aws:kms \
+  --sse-kms-key-id "$KMS_KEY"
 
 print_info "Uploading MSA template..."
 aws s3 cp \
   "templates/Master Services Agreement Template v02 JC - OFFLINE.docx" \
   "s3://${BUCKET}/templates/" \
   --profile $AWS_PROFILE \
+  --sse aws:kms \
+  --sse-kms-key-id "$KMS_KEY" \
   2>/dev/null || print_warning "MSA template upload failed (optional)"
 
 print_info "Uploading Proposal template..."
@@ -189,6 +193,8 @@ aws s3 cp \
   "templates/Short-Form Proposal Template v01 JC.pptx" \
   "s3://${BUCKET}/templates/" \
   --profile $AWS_PROFILE \
+  --sse aws:kms \
+  --sse-kms-key-id "$KMS_KEY" \
   2>/dev/null || print_warning "Proposal template upload failed (optional)"
 
 # Verify template upload
@@ -206,6 +212,8 @@ NDA_COUNT=$(find knowledge/NDAs -type f -name "*.pdf" | wc -l | tr -d ' ')
 if [ "$NDA_COUNT" -gt 0 ]; then
     aws s3 sync knowledge/NDAs/ "s3://${BUCKET}/knowledge/NDAs/" \
       --profile $AWS_PROFILE \
+      --server-side-encryption aws:kms \
+      --ssekms-key-id "$KMS_KEY" \
       --exclude ".*" \
       --exclude ".DS_Store"
     print_success "Uploaded $NDA_COUNT NDAs"
@@ -218,6 +226,8 @@ MSA_COUNT=$(find knowledge/MSAs -type f -name "*.pdf" 2>/dev/null | wc -l | tr -
 if [ "$MSA_COUNT" -gt 0 ]; then
     aws s3 sync knowledge/MSAs/ "s3://${BUCKET}/knowledge/MSAs/" \
       --profile $AWS_PROFILE \
+      --server-side-encryption aws:kms \
+      --ssekms-key-id "$KMS_KEY" \
       --exclude ".*" \
       --exclude ".DS_Store"
     print_success "Uploaded $MSA_COUNT MSAs"
@@ -229,6 +239,8 @@ print_info "Uploading SOWs..."
 if [ -d "knowledge/SOWs" ] && [ "$(ls -A knowledge/SOWs)" ]; then
     aws s3 sync knowledge/SOWs/ "s3://${BUCKET}/knowledge/SOWs/" \
       --profile $AWS_PROFILE \
+      --server-side-encryption aws:kms \
+      --ssekms-key-id "$KMS_KEY" \
       --exclude ".*" \
       --exclude ".DS_Store"
     print_success "Uploaded SOWs"

@@ -147,3 +147,4 @@ coverage.xml
 # Local configuration overrides
 local.tf
 local.tfvars
+terraform.tfvars

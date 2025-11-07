@@ -153,6 +153,7 @@ def generate_nda(company_identifier: str, signatory_name: str, signatory_title: 
         Key=output_key,
         Body=populated_doc,
         ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ServerSideEncryption='aws:kms',  # Required by bucket policy
         Metadata={
             'company_name': company_data['company_name'],
             'company_number': company_data['company_number'],
@@ -210,41 +211,73 @@ def populate_nda_template(
     # Load document from bytes
     doc = Document(io.BytesIO(template_content))
 
-    # Build replacement dictionary
+    # Build replacement dictionary matching exact template fields
     replacements = {
-        '[Company Name]': company_data['company_name'],
-        '[Company Number]': company_data['company_number'],
-        '[Company Type]': company_data['company_type'],
-        '[Registered Office Address]': company_data['registered_office_address'],
-        '[Jurisdiction]': company_data['jurisdiction'],
-        '[Signatory Name]': signatory_name,
-        '[Signatory Title]': signatory_title,
         '[Date]': datetime.utcnow().strftime('%d %B %Y'),
+        '[Recipient Name]': company_data['company_name'],  # Full company name
+        '[Recipient]': company_data['company_name'],  # Short reference to company
+        '[Company Type]': company_data['company_type'],
+        '[Jurisdiction]': company_data['jurisdiction'],
+        '[Company Number]': company_data['company_number'],
+        '[Registered Address]': company_data['registered_office_address'],
+        '[Name]': signatory_name,  # Signatory name
+        '[Title]': signatory_title,  # Signatory title
     }
 
     print(f"Replacements: {replacements}")
 
+    def replace_text_in_paragraph(paragraph, replacements):
+        """Replace text in a paragraph, handling text split across runs"""
+        full_text = paragraph.text
+        for key, value in replacements.items():
+            if key in full_text:
+                print(f"Replacing {key} with {value} in paragraph")
+                full_text = full_text.replace(key, value)
+
+        # Only update if something changed
+        if full_text != paragraph.text:
+            # Clear existing runs and add new text
+            for run in paragraph.runs:
+                run.text = ""
+            if paragraph.runs:
+                paragraph.runs[0].text = full_text
+            else:
+                paragraph.add_run(full_text)
+
     # Replace placeholders in paragraphs
     for paragraph in doc.paragraphs:
-        for key, value in replacements.items():
-            if key in paragraph.text:
-                print(f"Replacing {key} with {value} in paragraph")
-                # Replace in runs to preserve formatting
-                for run in paragraph.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, value)
+        replace_text_in_paragraph(paragraph, replacements)
 
     # Replace placeholders in tables
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                for key, value in replacements.items():
-                    if key in cell.text:
-                        print(f"Replacing {key} with {value} in table cell")
-                        for paragraph in cell.paragraphs:
-                            for run in paragraph.runs:
-                                if key in run.text:
-                                    run.text = run.text.replace(key, value)
+                for paragraph in cell.paragraphs:
+                    replace_text_in_paragraph(paragraph, replacements)
+
+    # Replace placeholders in headers and footers
+    for section in doc.sections:
+        # Header paragraphs
+        for paragraph in section.header.paragraphs:
+            replace_text_in_paragraph(paragraph, replacements)
+
+        # Header tables
+        for table in section.header.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        replace_text_in_paragraph(paragraph, replacements)
+
+        # Footer paragraphs
+        for paragraph in section.footer.paragraphs:
+            replace_text_in_paragraph(paragraph, replacements)
+
+        # Footer tables
+        for table in section.footer.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        replace_text_in_paragraph(paragraph, replacements)
 
     # Save to bytes
     output = io.BytesIO()
