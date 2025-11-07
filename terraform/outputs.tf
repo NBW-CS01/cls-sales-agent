@@ -81,3 +81,63 @@ output "embed_documents_command" {
   description = "Command to generate vector embeddings"
   value       = "./embed-documents.py --bucket ${aws_s3_bucket.jamie_knowledge_base.id} --profile AdministratorAccess-380414079195"
 }
+
+# WEB FRONTEND
+output "web_app_url" {
+  description = "CloudFront URL for NDA web application"
+  value       = "https://${aws_cloudfront_distribution.web_app.domain_name}"
+}
+
+output "api_endpoint" {
+  description = "API Gateway endpoint for NDA generation"
+  value       = aws_apigatewayv2_api.nda_api.api_endpoint
+}
+
+output "web_bucket" {
+  description = "S3 bucket for web application files"
+  value       = aws_s3_bucket.web_app.id
+}
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = aws_cognito_user_pool.nda_users.id
+}
+
+output "cognito_client_id" {
+  description = "Cognito App Client ID"
+  value       = aws_cognito_user_pool_client.nda_web_client.id
+}
+
+output "cognito_domain" {
+  description = "Cognito Hosted UI Domain"
+  value       = aws_cognito_user_pool_domain.nda_domain.domain
+}
+
+output "web_frontend_info" {
+  description = "Web frontend deployment information"
+  value       = <<-EOT
+  🌐 Web Application URL: https://${aws_cloudfront_distribution.web_app.domain_name}
+
+  📡 API Endpoint: ${aws_apigatewayv2_api.nda_api.api_endpoint}/generate-nda
+
+  🔐 Cognito User Pool: ${aws_cognito_user_pool.nda_users.id}
+  🔑 Cognito Client ID: ${aws_cognito_user_pool_client.nda_web_client.id}
+
+  📁 Web bucket: s3://${aws_s3_bucket.web_app.id}/
+
+  To create a user:
+    aws cognito-idp admin-create-user \\
+      --user-pool-id ${aws_cognito_user_pool.nda_users.id} \\
+      --username patrick@cloudscaler.com \\
+      --user-attributes Name=email,Value=patrick@cloudscaler.com Name=name,Value="Patrick Godden" \\
+      --profile AdministratorAccess-380414079195
+
+  To set permanent password:
+    aws cognito-idp admin-set-user-password \\
+      --user-pool-id ${aws_cognito_user_pool.nda_users.id} \\
+      --username patrick@cloudscaler.com \\
+      --password "YourSecurePassword123!" \\
+      --permanent \\
+      --profile AdministratorAccess-380414079195
+  EOT
+}

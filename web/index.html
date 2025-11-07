@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDA Generator - CloudScaler</title>
+    <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.6/dist/amazon-cognito-identity.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+            max-width: 600px;
+            width: 100%;
+            padding: 48px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #1a1a1a;
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        label {
+            display: block;
+            color: #1a1a1a;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #FF9500;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #FF9500 0%, #FFB800 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+            margin-top: 16px;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+            margin-top: 12px;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #FF9500;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result {
+            display: none;
+            padding: 24px;
+            background: #f0fdf4;
+            border-radius: 10px;
+            border: 2px solid #10b981;
+            margin-top: 24px;
+        }
+        
+        .result.active {
+            display: block;
+        }
+        
+        .result h3 {
+            color: #065f46;
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+        
+        .company-details {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 16px 0;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .company-details p {
+            margin: 10px 0;
+            color: #1a1a1a;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .company-details strong {
+            color: #FF9500;
+            font-weight: 600;
+        }
+        
+        .error {
+            display: none;
+            padding: 16px;
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 8px;
+            color: #991b1b;
+            margin-top: 16px;
+        }
+        
+        .error.active {
+            display: block;
+        }
+        
+        .user-info {
+            text-align: center;
+            padding: 16px;
+            background: #fef3c7;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            border: 1px solid #fbbf24;
+        }
+        
+        .user-info p {
+            color: #92400e;
+            font-weight: 600;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #9ca3af;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NDA Generator</h1>
+            <p>Generate Cloudscaler NDAs with Companies House data</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginSection">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Sign In</button>
+            </form>
+        </div>
+
+        <!-- NDA Generation Form (hidden until logged in) -->
+        <div id="ndaSection" class="hidden">
+            <div class="user-info" id="userInfo"></div>
+            
+            <form id="ndaForm">
+                <div class="form-group">
+                    <label for="company">Company Name or Number</label>
+                    <input type="text" id="company" placeholder="e.g., Ravens of Ingatestone Limited or 04109890" required>
+                </div>
+                <div class="form-group">
+                    <label for="signatory_name">Signatory Name</label>
+                    <input type="text" id="signatory_name" placeholder="e.g., Patrick Godden" required>
+                </div>
+                <div class="form-group">
+                    <label for="signatory_title">Signatory Title</label>
+                    <input type="text" id="signatory_title" placeholder="e.g., Director" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="generateBtn">Generate NDA</button>
+            </form>
+            
+            <button class="btn btn-secondary" id="logoutBtn">Sign Out</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <h3>NDA Generated Successfully!</h3>
+            <div class="company-details" id="companyDetails"></div>
+            <button class="btn btn-success" id="downloadBtn">Download NDA Document</button>
+        </div>
+
+        <div class="footer">
+            Powered by Jamie's brain & AWS Bedrock
+        </div>
+    </div>
+
+    <script>
+        // Configuration - will be replaced after deployment
+        const CONFIG = {
+            userPoolId: 'USER_POOL_ID_PLACEHOLDER',
+            clientId: 'CLIENT_ID_PLACEHOLDER',
+            apiEndpoint: 'API_ENDPOINT_PLACEHOLDER'
+        };
+
+        let currentUser = null;
+        let idToken = null;
+        let downloadUrl = null;
+
+        const poolData = {
+            UserPoolId: CONFIG.userPoolId,
+            ClientId: CONFIG.clientId
+        };
+
+        let userPool;
+        
+        // Initialize Cognito
+        if (typeof AmazonCognitoIdentity !== 'undefined') {
+            userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+        }
+
+        // Check if user is already logged in
+        function checkAuth() {
+            if (!userPool) {
+                console.warn('Cognito not configured');
+                return;
+            }
+            
+            currentUser = userPool.getCurrentUser();
+            if (currentUser) {
+                currentUser.getSession((err, session) => {
+                    if (err || !session.isValid()) {
+                        showLogin();
+                        return;
+                    }
+                    idToken = session.getIdToken().getJwtToken();
+                    showNDAForm(currentUser.getUsername());
+                });
+            } else {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('ndaSection').classList.add('hidden');
+        }
+
+        function showNDAForm(email) {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('ndaSection').classList.remove('hidden');
+            document.getElementById('userInfo').innerHTML = `<p>Signed in as: ${email}</p>`;
+        }
+
+        // Login handler
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const authenticationData = {
+                Username: email,
+                Password: password
+            };
+            
+            const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails(authenticationData);
+            
+            const userData = {
+                Username: email,
+                Pool: userPool
+            };
+            
+            const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+            
+            setLoading(true, 'Signing in...');
+            
+            cognitoUser.authenticateUser(authenticationDetails, {
+                onSuccess: (result) => {
+                    idToken = result.getIdToken().getJwtToken();
+                    currentUser = cognitoUser;
+                    setLoading(false);
+                    showNDAForm(email);
+                },
+                onFailure: (err) => {
+                    setLoading(false);
+                    showError(err.message || 'Login failed');
+                }
+            });
+        });
+
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (currentUser) {
+                currentUser.signOut();
+            }
+            idToken = null;
+            currentUser = null;
+            showLogin();
+        });
+
+        // NDA Generation handler
+        document.getElementById('ndaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                company: document.getElementById('company').value,
+                signatory_name: document.getElementById('signatory_name').value,
+                signatory_title: document.getElementById('signatory_title').value
+            };
+            
+            document.getElementById('result').classList.remove('active');
+            document.getElementById('error').classList.remove('active');
+            setLoading(true, 'Generating NDA...');
+            document.getElementById('generateBtn').disabled = true;
+            
+            try {
+                const response = await fetch(CONFIG.apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': idToken
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to generate NDA');
+                }
+                
+                if (data.success) {
+                    const company = data.company || {};
+                    document.getElementById('companyDetails').innerHTML = `
+                        <p><strong>Company Name:</strong> ${company.name || 'N/A'}</p>
+                        <p><strong>Registration Number:</strong> ${company.number || 'N/A'}</p>
+                        <p><strong>Company Type:</strong> ${company.type || 'N/A'}</p>
+                        <p><strong>Jurisdiction:</strong> ${company.jurisdiction || 'N/A'}</p>
+                        <p><strong>Address:</strong> ${company.address || 'N/A'}</p>
+                    `;
+                    
+                    downloadUrl = data.download_url;
+                    document.getElementById('result').classList.add('active');
+                } else {
+                    throw new Error(data.message || 'NDA generation failed');
+                }
+                
+            } catch (err) {
+                console.error('Error:', err);
+                showError(err.message);
+            } finally {
+                setLoading(false);
+                document.getElementById('generateBtn').disabled = false;
+            }
+        });
+
+        // Download handler
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (downloadUrl) {
+                window.open(downloadUrl, '_blank');
+            }
+        });
+
+        // Helper functions
+        function setLoading(isLoading, text = 'Processing...') {
+            const loading = document.getElementById('loading');
+            const loadingText = document.getElementById('loadingText');
+            if (isLoading) {
+                loadingText.textContent = text;
+                loading.classList.add('active');
+            } else {
+                loading.classList.remove('active');
+            }
+        }
+
+        function showError(message) {
+            const error = document.getElementById('error');
+            error.textContent = message;
+            error.classList.add('active');
+        }
+
+        // Initialize on page load
+        checkAuth();
+    </script>
+</body>
+</html>
