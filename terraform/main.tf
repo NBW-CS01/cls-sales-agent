@@ -274,6 +274,27 @@ resource "aws_lambda_function" "jamie_nda_generator" {
   }
 }
 
+# Lambda function for MSA generation
+# NOTE: Build deployment package with: cd lambda && ./build-msa-package.sh
+resource "aws_lambda_function" "jamie_msa_generator" {
+  filename         = "msa_generator.zip"
+  function_name    = "jamie2-msa-generator"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "msa_generator.lambda_handler"
+  runtime         = "python3.12"
+  timeout         = 120
+  memory_size     = 1024
+  source_code_hash = filebase64sha256("msa_generator.zip")
+
+  environment {
+    variables = {
+      KNOWLEDGE_BASE_BUCKET    = aws_s3_bucket.jamie_knowledge_base.bucket
+      REGION                   = var.aws_region
+      COMPANIES_HOUSE_API_KEY  = var.companies_house_api_key
+    }
+  }
+}
+
 # Create Lambda deployment package for document retriever
 data "archive_file" "lambda_zip" {
   type        = "zip"
@@ -370,6 +391,15 @@ resource "aws_lambda_permission" "allow_bedrock_nda" {
   statement_id  = "AllowExecutionFromBedrockNDA"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.jamie_nda_generator.function_name
+  principal     = "bedrock.amazonaws.com"
+  source_arn    = aws_bedrockagent_agent.jamie.agent_arn
+}
+
+# Lambda permission for Bedrock Agent - MSA Generator
+resource "aws_lambda_permission" "allow_bedrock_msa" {
+  statement_id  = "AllowExecutionFromBedrockMSA"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.jamie_msa_generator.function_name
   principal     = "bedrock.amazonaws.com"
   source_arn    = aws_bedrockagent_agent.jamie.agent_arn
 }
@@ -566,6 +596,47 @@ resource "aws_bedrockagent_agent_action_group" "nda_generation" {
   }
 }
 
+# Action group for MSA generation
+resource "aws_bedrockagent_agent_action_group" "msa_generation" {
+  action_group_name          = "MSAGeneration"
+  agent_id                   = aws_bedrockagent_agent.jamie.agent_id
+  agent_version              = "DRAFT"
+  skip_resource_in_use_check = true
+
+  description = "Generate Master Services Agreements using Companies House data and MSA templates"
+
+  action_group_executor {
+    lambda = aws_lambda_function.jamie_msa_generator.arn
+  }
+
+  function_schema {
+    member_functions {
+      functions {
+        name        = "generateMSA"
+        description = "Generate an MSA for a company by fetching details from Companies House and populating the template"
+        parameters {
+          map_block_key = "company_identifier"
+          type          = "string"
+          description   = "Company name or Companies House registration number (e.g., '01234567' or 'SC123456' or 'Acme Ltd')"
+          required      = true
+        }
+        parameters {
+          map_block_key = "signatory_name"
+          type          = "string"
+          description   = "Full name of the person who will sign the MSA"
+          required      = true
+        }
+        parameters {
+          map_block_key = "signatory_title"
+          type          = "string"
+          description   = "Job title/position of the signatory (e.g., 'Director', 'CEO', 'Managing Partner')"
+          required      = true
+        }
+      }
+    }
+  }
+}
+
 # Action group for vector search
 resource "aws_bedrockagent_agent_action_group" "vector_search" {
   action_group_name          = "VectorSearch"
@@ -617,6 +688,7 @@ resource "aws_bedrockagent_agent_alias" "jamie_prod" {
     aws_bedrockagent_agent.jamie,
     aws_bedrockagent_agent_action_group.document_search,
     aws_bedrockagent_agent_action_group.nda_generation,
+    aws_bedrockagent_agent_action_group.msa_generation,
     aws_bedrockagent_agent_action_group.vector_search
   ]
 }
@@ -634,6 +706,16 @@ resource "aws_cloudwatch_log_group" "lambda_retriever_logs" {
 
 resource "aws_cloudwatch_log_group" "lambda_nda_logs" {
   name              = "/aws/lambda/jamie2-nda-generator"
+  retention_in_days = 7
+
+  tags = {
+    Project = "jamie2"
+    Purpose = "lambda-logs"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "lambda_msa_logs" {
+  name              = "/aws/lambda/jamie2-msa-generator"
   retention_in_days = 7
 
   tags = {

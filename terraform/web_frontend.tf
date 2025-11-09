@@ -77,7 +77,7 @@ resource "aws_lambda_function" "nda_api_handler" {
   role          = aws_iam_role.nda_api_handler_role.arn
   handler       = "nda_api_handler.lambda_handler"
   runtime       = "python3.12"
-  timeout       = 60
+  timeout       = 120
 
   source_code_hash = fileexists("${path.module}/nda_api_handler.zip") ? filebase64sha256("${path.module}/nda_api_handler.zip") : null
 

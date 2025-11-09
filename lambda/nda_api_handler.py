@@ -40,6 +40,7 @@ def lambda_handler(event, context):
         company = body.get('company')
         signatory_name = body.get('signatory_name')
         signatory_title = body.get('signatory_title')
+        document_types = body.get('document_types', ['nda'])  # Default to NDA for backwards compatibility
 
         # Validate inputs
         if not company:
@@ -51,8 +52,20 @@ def lambda_handler(event, context):
         if not signatory_title:
             return cors_response(400, {'error': 'Signatory title is required'})
 
-        # Build prompt for Jamie 2.0
-        prompt = f"I need an NDA for {company}, signatory {signatory_name}, {signatory_title}"
+        if not document_types or len(document_types) == 0:
+            return cors_response(400, {'error': 'At least one document type must be specified'})
+
+        # Build prompt for Jamie 2.0 based on document types
+        doc_names = []
+        if 'nda' in document_types:
+            doc_names.append('NDA')
+        if 'msa' in document_types:
+            doc_names.append('MSA')
+
+        if len(doc_names) > 1:
+            prompt = f"I need both an {' and '.join(doc_names)} for {company}, signatory {signatory_name}, {signatory_title}"
+        else:
+            prompt = f"I need an {doc_names[0]} for {company}, signatory {signatory_name}, {signatory_title}"
 
         print(f"Invoking Bedrock Agent with prompt: {prompt}")
 
@@ -69,7 +82,9 @@ def lambda_handler(event, context):
         # Process streaming response
         event_stream = response['completion']
         full_response = ""
-        nda_data = None
+        documents = []  # Collect all documents (NDA and/or MSA)
+        company_details = None
+        expected_doc_count = len(document_types)  # How many documents we're expecting
 
         for event in event_stream:
             print(f"Event keys: {event.keys()}")
@@ -85,7 +100,7 @@ def lambda_handler(event, context):
                 trace = event['trace']
                 print(f"Trace keys: {trace.keys()}")
 
-                # Extract NDA generation result from trace
+                # Extract document generation result from trace
                 trace_str = str(trace)
                 if 'download_url' in trace_str:
                     print("Found download_url in trace")
@@ -104,27 +119,59 @@ def lambda_handler(event, context):
                                     if 'text' in output:
                                         print(f"Action output text: {output['text'][:500]}")
                                         try:
-                                            nda_data = json.loads(output['text'])
-                                            print(f"Parsed NDA data successfully")
+                                            doc_data = json.loads(output['text'])
+                                            print(f"Parsed document data successfully")
+                                            if doc_data.get('success'):
+                                                # Determine document type from s3_key
+                                                s3_key = doc_data.get('s3_key', '')
+                                                doc_type = 'nda' if 'nda' in s3_key.lower() else 'msa'
+
+                                                documents.append({
+                                                    'type': doc_type,
+                                                    'download_url': doc_data.get('download_url'),
+                                                    's3_key': s3_key
+                                                })
+                                                print(f"Collected {len(documents)}/{expected_doc_count} documents")
+
+                                                # Save company details from first document
+                                                if not company_details:
+                                                    company_details = doc_data.get('company_details', {})
+
+                                                # Early exit: Return immediately once we have all expected documents
+                                                # This prevents API Gateway 30-second timeout
+                                                if len(documents) >= expected_doc_count:
+                                                    print(f"All {expected_doc_count} documents collected, returning early")
+                                                    response_data = {
+                                                        'success': True,
+                                                        'message': f"Successfully generated {len(documents)} document(s)",
+                                                        'company': company_details or {},
+                                                        'documents': documents,
+                                                        'expires_in': '1 hour'
+                                                    }
+                                                    return cors_response(200, response_data)
                                         except Exception as e:
-                                            print(f"Failed to parse NDA data: {e}")
+                                            print(f"Failed to parse document data: {e}")
 
         # Return response
-        if nda_data and nda_data.get('success'):
-            return cors_response(200, {
+        print(f"Documents collected: {len(documents)}")
+        print(f"Documents: {documents}")
+        if documents and len(documents) > 0:
+            response_data = {
                 'success': True,
                 'message': full_response,
-                'company': nda_data.get('company_details', {}),
-                'download_url': nda_data.get('download_url'),
-                's3_key': nda_data.get('s3_key'),
-                'expires_in': nda_data.get('expires_in', '1 hour')
-            })
+                'company': company_details or {},
+                'documents': documents,
+                'expires_in': '1 hour'
+            }
+            print(f"Returning success response with {len(documents)} documents")
+            return cors_response(200, response_data)
         else:
             # Even if we couldn't parse structured data, return the text response
+            print("No documents collected, returning fallback response")
             return cors_response(200, {
                 'success': True,
                 'message': full_response,
-                'note': 'NDA generated but structured data not available. Check CloudWatch logs.'
+                'note': 'Documents generated but structured data not available. Check CloudWatch logs.'
             })
 
     except Exception as e:
